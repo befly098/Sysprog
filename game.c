@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <stdlib.h>
@@ -11,11 +12,13 @@ typedef struct trump
 
 void make_card(trump card[]);
 void print_card(trump card[]);
+void shuffle_card(trump card[]);
 
 int main()
 {
 	trump card[53];
 	make_card(card);
+	shuffle_card(card);
 	print_card(card);
 }
 
@@ -60,4 +63,24 @@ void print_card(trump card[])
 	}
 }
 
+//shuffle cardset
+void shuffle_card(trump card[])
+{
+	srand(time(NULL));
+	int time;
+	int src, dst;
+	trump tmp;
+	
+	time = rand() % 20;
+	time += 40;
 
+	for (int i = 0; i < time; i++)
+	{
+		src = rand() % 53;
+		dst = rand() % 53;
+
+		tmp = card[src];
+		card[src] = card[dst];
+		card[dst] = tmp;
+	}
+}
