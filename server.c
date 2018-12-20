@@ -26,13 +26,14 @@ void distribute_card();
 int popClient(int s);
 int pushClient(int c_socket);
 void* do_game(void *);
-
+int discard_card(int number);
 pthread_t thread;
 pthread_mutex_t mutex;
 int count_num=0, start_flag=FALSE;
 trump card[53];
-trump player[4][13];
+trump player[4][14];
 int one_more=-1;
+int card_num[4]= {13,13,13,13};
 FILE *fp;
 int list_c[MAX_CLIENT]; // 클라이언트들의 소켓 번호를 저장하기 위한 배열
 
@@ -119,6 +120,8 @@ void *do_game(void *arg) {
                                         strcpy(chatData,"The game is started");
 					fp=fdopen(list_c[i],"w");
 					fprintf(fp,"The game is started\n");
+					print_card(i);
+					while(discard_card(i));
 					print_card(i);
 					fflush(fp);
                                 }
@@ -209,6 +212,7 @@ void print_card(int index)
 	//print card to player[index]
        	fprintf(fp,"player %d : ", index+1);
         for (j = 0; j < 13; j++){
+		if(player[index][j].num!=-1){
 		if(player[index][j].num=='A')
                 	fprintf(fp,"%s -A", player[index][j].shape);
 		else if(player[index][j].num=='J')
@@ -219,10 +223,11 @@ void print_card(int index)
                         fprintf(fp,"%s -K", player[index][j].shape);
 		else
                         fprintf(fp,"%s -%d", player[index][j].shape, player[index][j].num);
-
+		}
 			
 	}
        	if(index == one_more){
+		 if(player[index][j].num!=-1){
 		if(player[index][j].num=='A')
                         fprintf(fp,"%s -A", player[index][j].shape);
                 else if(player[index][j].num=='J')
@@ -234,6 +239,7 @@ void print_card(int index)
                 else
                         fprintf(fp,"%s -%d", player[index][j].shape, player[index][j].num);
 
+		}
 	}
 
        	fprintf(fp,"\n");
@@ -282,8 +288,35 @@ void distribute_card()
         //distribute card
         for (i = 0; i < 52; i++)
                 player[i % 4][i / 4] = card[i];
-
+	for(i=0;i<4;i++)
+		player[i][13].num=-1;
         //give one more card to selected user
         player[one_more][13] = card[52];
 }
+int discard_card(int number){ //number은 player의 인덱스
+	int i,j;
+	
+	for(i=0;i<13;i++){
+		for(j=i+1;j<14;j++){
+			if(player[number][i].num!=-1){
+				if(player[number][j].num!=-1){
+					if(player[number][i].num==player[number][j].num){
+							if(player[number][i].num>10)
+								fprintf(fp,"버려진 카드: (%s - %c), (%s -%c)\n",player[number][i].shape,
+									player[number][i].num,player[number][j].shape,player[number][j].num);
+							else  
+								fprintf(fp,"버려진 카드: (%s - %d), (%s -%d)\n",player[number][i].shape,
+									player[number][i].num,player[number][j].shape,player[number][j].num);
 
+
+					player[number][i].num=-1;
+					player[number][j].num=-1;
+					card_num[number]-=2;
+					return 1;
+				}
+			}
+		}
+	}
+}
+	return 0;
+}
