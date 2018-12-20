@@ -20,9 +20,9 @@ typedef struct trump
 }trump;
 
 void make_card();
-void print_card(int index, int one_more);
+void print_card(int index);
 void shuffle_card();
-void distribute_card(int * one_more);
+void distribute_card();
 int popClient(int s);
 int pushClient(int c_socket);
 void* do_game(void *);
@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
 	int res;
 	make_card();
 	shuffle_card();
-	distribute_card(&one_more);
+	distribute_card();
 	if (argc < 2) {
 		printf("usage: %s port_number\n", argv[0]);
 		exit(-1);
@@ -119,7 +119,7 @@ void *do_game(void *arg) {
                                         strcpy(chatData,"The game is started");
 					fp=fdopen(list_c[i],"w");
 					fprintf(fp,"The game is started\n");
-					print_card(i,one_more);
+					print_card(i);
 					fflush(fp);
                                 }
 				start_flag=TRUE;
@@ -203,14 +203,39 @@ void make_card()
 }
 
 //print cardset for test
-void print_card(int index, int one_more)
+void print_card(int index)
 {
+	int j=0;
 	//print card to player[index]
        	fprintf(fp,"player %d : ", index+1);
-        for (int j = 0; j < 13; j++)
-                fprintf(fp,"%s -%d ", player[index][j].shape, player[index][j].num);
-       	if(index == one_more)
-                fprintf(fp,"%s -%d ", player[index][13].shape, player[index][13].num);
+        for (j = 0; j < 13; j++){
+		if(player[index][j].num=='A')
+                	fprintf(fp,"%s -A", player[index][j].shape);
+		else if(player[index][j].num=='J')
+                        fprintf(fp,"%s -J", player[index][j].shape);
+		else if(player[index][j].num=='Q')
+                        fprintf(fp,"%s -Q", player[index][j].shape);
+		else if(player[index][j].num=='K')
+                        fprintf(fp,"%s -K", player[index][j].shape);
+		else
+                        fprintf(fp,"%s -%d", player[index][j].shape, player[index][j].num);
+
+			
+	}
+       	if(index == one_more){
+		if(player[index][j].num=='A')
+                        fprintf(fp,"%s -A", player[index][j].shape);
+                else if(player[index][j].num=='J')
+                        fprintf(fp,"%s -J", player[index][j].shape);
+                else if(player[index][j].num=='Q')
+                        fprintf(fp,"%s -Q", player[index][j].shape);
+                else if(player[index][j].num=='K')
+                        fprintf(fp,"%s -K", player[index][j].shape);
+                else
+                        fprintf(fp,"%s -%d", player[index][j].shape, player[index][j].num);
+
+	}
+
        	fprintf(fp,"\n");
         
 	fflush(fp);
@@ -224,7 +249,6 @@ void shuffle_card()
         int time;
         int src, dst;
         trump tmp;
-
         time = rand() % 20;
         time += 40;
 
@@ -247,18 +271,19 @@ void shuffle_card()
 
 
 //distribute card
-void distribute_card(int *one_more)
+void distribute_card()
 {	
 	int i=0;
         //player who will get the one more card
-        *(one_more) = rand() % 4;
-        printf("player %d will get one more card\n", (*one_more)+1);
+	srand(time(NULL));
+        one_more = rand() % 4;
+        printf("player %d will get one more card\n", one_more+1);
 
         //distribute card
         for (i = 0; i < 52; i++)
                 player[i % 4][i / 4] = card[i];
 
         //give one more card to selected user
-        player[(*one_more)][13] = card[52];
+        player[one_more][13] = card[52];
 }
 
