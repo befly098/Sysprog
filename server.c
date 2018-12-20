@@ -26,14 +26,19 @@ void distribute_card();
 int popClient(int s);
 int pushClient(int c_socket);
 void* do_game(void *);
+void change_turn(int turn);
 int discard_card(int number);
+void bring_card(int index);
 pthread_t thread;
 pthread_mutex_t mutex;
 int count_num=0, start_flag=FALSE;
+int loser_check(int index);
 trump card[53];
 trump player[4][14];
 int one_more=-1;
 int card_num[4]= {13,13,13,13};
+int current_turn;
+int next_turn[4]={1,2,3,0};
 FILE *fp;
 int list_c[MAX_CLIENT]; // 클라이언트들의 소켓 번호를 저장하기 위한 배열
 
@@ -53,8 +58,10 @@ int main(int argc, char *argv[]) {
 	make_card();
 	shuffle_card();
 	distribute_card();
+	current_turn=one_more;
+	
 	if (argc < 2) {
-		printf("usage: %s port_number\n", argv[0]);
+		printf("usage: %s porut_number\n", argv[0]);
 		exit(-1);
 	}
     
@@ -79,7 +86,7 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
     
-	// 운영체제에 개통 요청. 이 시점부터 연결을 받아들인다.
+	// 운영체제에 개통 요청. 이 c시점부터 연결을 받아들인다.
 	if (listen(s_socket, MAX_CLIENT) == -1) {
 		printf("listen Fail\n");
 		return -1;
@@ -111,13 +118,15 @@ int main(int argc, char *argv[]) {
 void *do_game(void *arg) {
 	int c_socket = (int) arg;
 	char chatData[CHATDATA];
+	char*sub;
+	int select_flag=FALSE;
 	int i,j, n;
+	int recv;
 	while(1) {
 		memset(chatData, 0, sizeof(chatData));
 		// 소켓으로부터 읽어온 데이터가 있으면 전체 클라이언트에 메시지를 보낸다.
 		   if(count_num==MAX_CLIENT && !start_flag){
                                 for(i=0;i<MAX_CLIENT;i++){
-                                        strcpy(chatData,"The game is started");
 					fp=fdopen(list_c[i],"w");
 					fprintf(fp,"The game is started\n");
 					print_card(i);
@@ -127,8 +136,46 @@ void *do_game(void *arg) {
                                 }
 				start_flag=TRUE;
                         }
-			
+		
+		if(count_num==MAX_CLIENT){
+			fp=fdopen(list_c[current_turn],"w");
+			if(loser_check(current_turn)){
+				fprintf(fp,"~~~~~~~~~~You have losed the game~~~~~~~~~~~\n");
+				fflush(fp);
+				for (i = 0; i < MAX_CLIENT; i++){
+                                	if (list_c[i] != INVALID_SOCK){
+						fp=fdopen(list_c[i],"w");
+						fprintf(fp,"\n\n\n\nGame is over\n\n\n\n");
+						fflush(fp);
+						popClient(i+4);
+					}
+				}
+				return 0;
+                                        	
+                        }
+
+		
+		fprintf(fp,"Your Turn\n");
+		fprintf(fp,"\n\n Your Cards \n\n");
+		print_card(current_turn);
+		fprintf(fp,"%d 이하의 숫자를 고르세요\n",card_num[next_turn[current_turn]]);
+		fprintf(fp,"select 와 함께 index를 전달 해주세요.\n");
+		fflush(fp);
+		}
 		if((n = read(c_socket, chatData, sizeof(chatData))) > 0) {
+			if((c_socket-4)==current_turn){
+				sub=strstr(chatData,"select");
+					if(sub)
+						recv=sub[7]-'0';
+			bring_card(recv);
+			discard_card(current_turn);
+			select_flag=TRUE;	
+			}	
+			if(select_flag && sub){
+				print_card(current_turn);
+				change_turn(current_turn);
+				continue;
+			}
 			for (i = 0; i < MAX_CLIENT; i++){
 				if (list_c[i] != INVALID_SOCK) 
 					write(list_c[i], chatData, n);
@@ -136,9 +183,10 @@ void *do_game(void *arg) {
 			// 종료 문자열이 포함되어 있으면 해당 클라이언트를 배열에서 지운다.
 			if (strstr(chatData, escape) != NULL) 
 				popClient(c_socket);
-			
+			}
+		
 		}
-	}
+	
 }
 
 int pushClient(int c_socket) {
@@ -292,6 +340,7 @@ void distribute_card()
 		player[i][13].num=-1;
         //give one more card to selected user
         player[one_more][13] = card[52];
+	card_num[one_more]++;
 }
 int discard_card(int number){ //number은 player의 인덱스
 	int i,j;
@@ -319,4 +368,64 @@ int discard_card(int number){ //number은 player의 인덱스
 	}
 }
 	return 0;
+}
+void change_turn(int turn){
+	int temp,i;
+	 if(card_num[next_turn[turn]]==0){
+		 fp=fdopen(list_c[next_turn[turn]],"w");
+	        fprintf(fp,"Finish\n\n");
+        	fflush(fp);
+
+		next_turn[turn]=next_turn[next_turn[turn]];
+		//next_turn[turn]=-1;
+	}
+	else if(card_num[turn]==0){
+		  fp=fdopen(list_c[turn],"w");
+                fprintf(fp,"Finish\n\n");
+                fflush(fp);
+		for(i=0;i<4;i++){
+			if(card_num[i]!=0 && next_turn[i]==turn){
+				next_turn[i]=next_turn[turn];
+				break;
+			}
+			continue;
+		}
+	}
+		
+	current_turn=next_turn[turn];
+	
+}
+
+void bring_card(int recv){
+	int i;
+	int count=0;
+	int index=0;
+	int target_index;
+
+	for(i=0;i<14;i++){
+		if(player[current_turn][i].num==-1){
+			target_index=i;
+			break;
+		}
+	}
+	for(i=0;i<14;i++){
+			
+		if(player[next_turn[current_turn]][i].num!=-1)
+			count++;
+		
+		if(count==recv){
+                        player[current_turn][target_index]=player[next_turn[current_turn]][i];
+			player[next_turn[current_turn]][i].num=-1;
+			card_num[current_turn]++;
+			card_num[next_turn[current_turn]]--;
+			return;
+		}
+	}
+
+			
+}	
+int loser_check(int index){
+	if(index==next_turn[index])
+		return TRUE;
+	return FALSE;
 }
